@@ -71,6 +71,7 @@ pub fn mip_approach(instance: &Instance) {
     let mut new_to_old: Vec<EpochAttesterID> = cliqued_atts.iter().flatten().cloned().collect();
     new_to_old.sort_unstable();
     new_to_old.dedup();
+    println!("num cliques: {}", num_cliques.iter().sum::<usize>());
 
     let old_to_new: HashMap<EpochAttesterID, usize> = new_to_old
         .iter()

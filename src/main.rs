@@ -22,6 +22,7 @@ fn main() {
     match &args.approach[..] {
         "mip_approach" => approaches::mip_approach(&instance),
         "n_unique_roots" => approaches::n_unique_roots(&instance),
+        "decomposition" => approaches::decomposition_approach(&instance),
         _ => {
             println!("valid approach not specified.")
         }

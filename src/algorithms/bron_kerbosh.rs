@@ -1,8 +1,3 @@
-#![allow(unused_variables, dead_code)]
-
-//! This module implements a variant of the Bron-Kerbosh algorithm for the enumeration of all the
-//! maximal cliques in a graph. This implementation uses degeneracy vertex ordering and pivoting.
-
 /// Entry point for the Bron-Kerbosh algorithm. Takes a vector of `vertices` of type
 /// `T : Compatible<T>`. Returns all the maximal cliques (as a matrix of indices) for the graph
 /// `G = (V,E)` where `V` is `vertices` and `E` encodes the `is_compatible` relationship.
@@ -10,26 +5,29 @@ pub fn bron_kerbosh<T, F: Fn(&T, &T) -> bool>(
     vertices: &Vec<T>,
     is_compatible: F,
 ) -> Vec<Vec<usize>> {
-    // build neighbourhoods and degeneracy ordering, also move to index-based reasoning
-    let neighbourhoods = compute_neigbourhoods(vertices, is_compatible);
-    let ordering = degeneracy_order(vertices.len(), &neighbourhoods);
-
     // create empty vector to store cliques
     let mut cliques: Vec<Vec<usize>> = vec![];
-    let mut publish_clique = |c| cliques.push(c);
 
-    for i in 0..ordering.len() {
-        let vi = ordering[i];
-        let p = (i + 1..ordering.len())
-            .filter(|j| neighbourhoods[vi].contains(&ordering[*j]))
-            .map(|j| ordering[j])
-            .collect();
-        let r = vec![vi];
-        let x = (0..i)
-            .filter(|j| neighbourhoods[vi].contains(&ordering[*j]))
-            .map(|j| ordering[j])
-            .collect();
-        bron_kerbosh_aux(r, p, x, &neighbourhoods, &mut publish_clique)
+    if vertices.len() > 0 {
+        // build neighbourhoods and degeneracy ordering, also move to index-based reasoning
+        let neighbourhoods = compute_neigbourhoods(vertices, is_compatible);
+        let ordering = degeneracy_order(vertices.len(), &neighbourhoods);
+
+        let mut publish_clique = |c| cliques.push(c);
+
+        for i in 0..ordering.len() {
+            let vi = ordering[i];
+            let p = (i + 1..ordering.len())
+                .filter(|j| neighbourhoods[vi].contains(&ordering[*j]))
+                .map(|j| ordering[j])
+                .collect();
+            let r = vec![vi];
+            let x = (0..i)
+                .filter(|j| neighbourhoods[vi].contains(&ordering[*j]))
+                .map(|j| ordering[j])
+                .collect();
+            bron_kerbosch_aux(r, p, x, &neighbourhoods, &mut publish_clique)
+        }
     }
 
     cliques
@@ -81,7 +79,7 @@ fn degeneracy_order(num_vertices: usize, neighbourhoods: &[Vec<usize>]) -> Vec<u
 ///  * `x` - a set of vertices that have been explored and shouldn't be added to r
 ///  * `neighbourhoods` - a data structure to hold the neighbourhoods of each vertex
 ///  * `publish_clique` - a callback function to call whenever a clique has been produced
-fn bron_kerbosh_aux<F>(
+fn bron_kerbosch_aux<F>(
     r: Vec<usize>,
     p: Vec<usize>,
     x: Vec<usize>,
@@ -98,8 +96,7 @@ fn bron_kerbosh_aux<F>(
     // modified p (p \ neighbourhood(pivot)), modified x
     let (mut ip, mut mp, mut mx) = (p.clone(), p.clone(), x.clone());
     let pivot = find_pivot(&p, &x, neighbourhoods);
-    ip.extract_if(|e| neighbourhoods[pivot].contains(e))
-        .collect::<Vec<usize>>();
+    ip.retain(|e| !neighbourhoods[pivot].contains(e));
 
     // while !mp.is_empty() {
     while !ip.is_empty() {
@@ -120,13 +117,12 @@ fn bron_kerbosh_aux<F>(
         nx.retain(|e| n.contains(e));
 
         // recursive call
-        bron_kerbosh_aux(nr, np, nx, neighbourhoods, publish_clique);
+        bron_kerbosch_aux(nr, np, nx, neighbourhoods, publish_clique);
 
         // p \ { v }, x U { v }
         mp.remove(mp.iter().position(|x| *x == v).unwrap());
         ip = mp.clone();
-        ip.extract_if(|e| neighbourhoods[pivot].contains(e))
-            .collect::<Vec<usize>>();
+        ip.retain(|e| !neighbourhoods[pivot].contains(e));
         mx.push(v);
     }
 }
@@ -137,21 +133,19 @@ fn find_pivot(p: &[usize], x: &[usize], neighbourhoods: &[Vec<usize>]) -> usize 
     px.append(&mut x.to_vec());
     *px.iter()
         .min_by_key(|&e| {
-            let mut pp = p.to_vec();
-            pp.extract_if(|ee| neighbourhoods[*e].contains(ee))
-                .collect::<Vec<usize>>();
-            pp.len()
+            let pp = p.to_vec();
+            pp.iter()
+                .filter(|ee| neighbourhoods[*e].contains(ee))
+                .count()
         })
         .unwrap()
 }
 
+#[cfg(test)]
 mod tests {
-    #![allow(unused_imports)]
-
-    use crate::algorithms::bron_kerbosh::bron_kerbosh;
-
+    use super::*;
     #[test]
-    fn small() {
+    fn bron_kerbosch_small_test() {
         let vertices: Vec<usize> = (0..7).collect();
         let edges = vec![
             (0, 1),
@@ -172,6 +166,6 @@ mod tests {
             edges.contains(&(*first, *second)) || edges.contains(&(*first, *second))
         };
 
-        println!("{:?}", bron_kerbosh(&vertices, is_compatible));
+        println!("{:?}", bron_kerbosch(&vertices, is_compatible));
     }
 }
