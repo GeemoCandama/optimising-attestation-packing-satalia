@@ -166,6 +166,6 @@ mod tests {
             edges.contains(&(*first, *second)) || edges.contains(&(*first, *second))
         };
 
-        println!("{:?}", bron_kerbosch(&vertices, is_compatible));
+        println!("{:?}", bron_kerbosh(&vertices, is_compatible));
     }
 }
