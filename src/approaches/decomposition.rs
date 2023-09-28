@@ -1,8 +1,8 @@
 use crate::aapp::instance::{Attestation, AttestationData, EpochAttesterID, Instance};
 use crate::algorithms::{bron_kerbosh, WeightedMaximumCoverage};
-use std::collections::{HashMap, HashSet};
-use std::time::{Instant, Duration};
 use itertools::Itertools;
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 pub fn decomposition_approach(instance: &Instance) {
     let start = Instant::now();
@@ -69,14 +69,14 @@ pub fn decomposition_approach(instance: &Instance) {
     }
 
     // R(f(0,m)) = 0 => val_map[0][0] = 0
-    // R(f(1,0)) => val_map[1][0] 
+    // R(f(1,0)) => val_map[1][0]
     // ...
     //
     // each vector inside the val_map has length q_i = min(m, clique.len())
     // val_map[i] := the ith datas computed values in order from 0 -> q_i
     let mut f_map: Vec<Vec<f64>> = vec![vec![0.0; 129]; cliqued_atts.len() + 1];
     let mut g_map: Vec<Vec<f64>> = vec![vec![0.0; 129]; cliqued_atts.len() + 1];
-    // iterate over vectors of vectors of cliques 
+    // iterate over vectors of vectors of cliques
     // index: usize
     // clique_set: Vec<Vec<EpochAttesterID>>
     // one clique is a Vec<EpochAttesterID>
@@ -87,12 +87,8 @@ pub fn decomposition_approach(instance: &Instance) {
     let mut mip_time = Duration::new(0, 0);
     for (index, clique_set) in cliqued_atts.iter().enumerate() {
         let index = index + 1;
-        let new_to_old: Vec<EpochAttesterID> = clique_set
-            .iter()
-            .flatten()
-            .unique()
-            .cloned()
-            .collect();
+        let new_to_old: Vec<EpochAttesterID> =
+            clique_set.iter().flatten().unique().cloned().collect();
 
         let old_to_new: HashMap<EpochAttesterID, usize> = new_to_old
             .iter()
@@ -110,22 +106,22 @@ pub fn decomposition_approach(instance: &Instance) {
             .map(|attester| instance.reward_function.get(attester))
             .map(|weight| weight.copied().unwrap_or(0) as f64)
             .collect();
-        
+
         num_available_atts += clique_set.len();
         for i in 0..=m {
             let f_k_m = if i > num_available_atts {
                 f_map[index - 1][i]
             } else {
                 calculate_f_from_map(
-                    instance, 
-                    &f_map, 
+                    instance,
+                    &f_map,
                     &mut g_map,
-                    clique_set, 
-                    reindexed_atts.clone(), 
-                    reindexed_weights.clone(), 
-                    index, 
+                    clique_set,
+                    reindexed_atts.clone(),
+                    reindexed_weights.clone(),
+                    index,
                     i,
-                    &mut mip_time
+                    &mut mip_time,
                 )
             };
             f_map[index][i] = f_k_m;
@@ -164,7 +160,7 @@ pub fn decomposition_approach(instance: &Instance) {
     print!(
         ",total mip time: {:?}, total time: {}",
         mip_time,
-        end.duration_since(start).as_millis()      // all duration
+        end.duration_since(start).as_millis() // all duration
     );
 
     print!(
@@ -244,14 +240,14 @@ fn calculate_f_from_map(
                 let second_ind = if m - q >= f_map[k - 1].len() {
                     f_map[k - 1].len() - 1
                 } else {
-                    m - q    
+                    m - q
                 };
-                 f_map[k-1][second_ind]
+                f_map[k - 1][second_ind]
             };
 
             let g_val = if k == 0 || q == 0 {
                 0.0
-            } else if g_map[k][q] == 0.0 {  
+            } else if g_map[k][q] == 0.0 {
                 let res = if reindexed_atts.len() == 1 {
                     vec![0]
                 } else {
@@ -261,7 +257,7 @@ fn calculate_f_from_map(
                         k: q,
                     };
                     let mip_start = Instant::now();
-                
+
                     let res = wmcp.solve().unwrap();
                     let mip_end = Instant::now();
                     *mip_time += mip_end - mip_start;
@@ -299,10 +295,10 @@ mod tests {
     fn test_basic_logic_of_decomposition() {
         // setup the mock attestations by data
         let data_to_atts: Vec<Vec<usize>> = vec![
-            (0..4).collect(), 
+            (0..4).collect(),
             (4..8).collect(),
             (8..12).collect(),
-            (12..16).collect()
+            (12..16).collect(),
         ];
 
         // setup mock rewards
@@ -316,17 +312,12 @@ mod tests {
 
         let mut f_map: Vec<Vec<usize>> = vec![vec![0; capacity + 1]; capacity + 1];
         for (index, cliques) in data_to_atts.iter().enumerate() {
-            let index = index + 1; 
+            let index = index + 1;
             for i in 0..=capacity {
                 let f_k_m = if i < cliques.len() + 1 {
-                    calculate_f_from_map_test(
-                        &f_map, 
-                        cliques, 
-                        index, 
-                        i
-                    )
+                    calculate_f_from_map_test(&f_map, cliques, index, i)
                 } else {
-                    f_map[index][i-1]
+                    f_map[index][i - 1]
                 };
                 f_map[index][i] = f_k_m;
             }
@@ -353,13 +344,13 @@ mod tests {
                     let second_ind = if m - q >= f_map[k - 1].len() {
                         f_map[k - 1].len() - 1
                     } else {
-                        m - q    
+                        m - q
                     };
-                     f_map[k-1][second_ind]
+                    f_map[k - 1][second_ind]
                 };
-                
+
                 let g_val: usize = rewards[0..q].iter().sum();
-    
+
                 choices[q] = f_val + g_val;
             }
             *choices.iter().max().unwrap()
