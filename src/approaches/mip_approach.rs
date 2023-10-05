@@ -90,7 +90,7 @@ pub fn mip_approach(instance: &Instance) {
         .map(|weight| weight.copied().unwrap_or(0) as f64)
         .collect();
 
-    let wmcp = WeightedMaximumCoverage {
+    let mut wmcp = WeightedMaximumCoverage {
         sets: reindexed_atts,
         weights: reindexed_weights,
         k: 128,
@@ -98,7 +98,7 @@ pub fn mip_approach(instance: &Instance) {
 
     let mip_start = Instant::now();
 
-    let res = wmcp.solve().unwrap();
+    let res = wmcp.greedy_solution().unwrap();
 
     let final_attesters: Vec<Vec<EpochAttesterID>> =
         res.iter().map(|idx| cliqued_atts[*idx].clone()).collect();

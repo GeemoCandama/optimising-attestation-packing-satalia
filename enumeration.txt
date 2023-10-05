@@ -1,0 +1,32 @@
+So the algorithm is supposed to employ a branch and bound algorithm to solve the weighted maximum coverage problem.
+The issue that I currently have is that the pseudocode provided by the the satalia 02 paper does not seem to be correct.
+The pseudocode and the description in the paper don't even match up.
+
+The weighted maximum coverage problem in the particular problem is to maximize the weight (reward) from the attestations.
+This turns out to be an instance of the problem type because the reward is dependentant on the coverage of the attestations
+over the validator set.
+
+Notes on Stokes:
+Made it to the space via account abstraction. First contribution was done in the open source environment by implementing
+some low level calls to facilitate account abstraction.
+What he's working on now/finds interesting in the near roadmap:
+Shipping blobs to the network/4844. The progress on this is at the client development stage. He works at a a higher level.
+Also, interesting in MEV and restaking. Elaborates on the emergent consequences of shipping a protocol and the importance
+of considering deeply any changes. Incentive compatibility of highly concentrated MEV players.The MEV-rs library helps a bit
+by lowering the barrier to entry to be a builder by providing well documented and efficient implementations.
+Most controversial opinion on the space:
+Alignment narrative is dangerous because it allows the so called good guys to capture the project. Absolute power corrupts
+absolutely. New actors are incentivised to attempt to influence the design of the protocol.
+When considering high level protocol changes it is  important to consider threat models and threat actors. Many security
+developers work at the EF to fuzz and directly test client security vulnerabilities.
+MEV on L2/Rollups:
+Lots of innovation on L2. The L1 should be maximally simple because simple is more secure. Rollups should be where the 
+experimentation lives. The current model for L2's require a centralized sequencer. We immediately want to consider if
+centralized sequencers need to be decentralized. Maybe they don't. As long as the bridge has fraud proofs and the rollup providers
+can not rug the users. For each of the sequencers they are likely to have a large mempool.  Design space for MEV is huge.
+Fair ordering schemes do not work. They just move the value around.
+What is holding back the industry:
+Stablecoins are an important use case. Not sure that the holy grail will ever materialize. That is nonbacked Stablecoins.
+User facing software is immature. All of the software is immature.
+Research is about finding the right questions. Then what are the best solutions.
+Builders as banks. They become problematic when a small number of entitites can put pressure on the protocol.

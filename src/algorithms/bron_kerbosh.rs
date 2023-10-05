@@ -44,10 +44,10 @@ fn compute_neigbourhoods<T, F: Fn(&T, &T) -> bool>(
 ) -> Vec<Vec<usize>> {
     let mut neighbourhoods = vec![];
     neighbourhoods.resize_with(vertices.len(), Vec::new);
-    for i in 0..vertices.len() - 1 {
-        for j in i + 1..vertices.len() {
-            if is_compatible(&vertices[i], &vertices[j]) {
-                neighbourhoods[i].push(j);
+    for (i, vertex)  in vertices.iter().enumerate() {
+        for (j, vertex_2) in vertices.iter().enumerate().skip(i) {
+            if is_compatible(vertex, vertex_2) {
+                neighbourhoods[i].push(j + i);
                 neighbourhoods[j].push(i);
             }
         }
