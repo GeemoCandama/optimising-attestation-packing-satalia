@@ -22,6 +22,8 @@ pub struct WeightedMaximumCoverage {
     pub k: usize,
 }
 
+use itertools::Itertools;
+
 #[allow(unused_variables)]
 impl WeightedMaximumCoverage {
     /// Solves the Weighted Maximum Coverage using a MIP solver.
@@ -115,107 +117,191 @@ impl WeightedMaximumCoverage {
         Ok(res)
     }
 
-    // pub fn enum_solve(&self) -> Vec<Vec<usize>> {
-    //     let mut b: Vec<Vec<usize>> = vec![];
-    //     let r = &self.sets;
-    //     enum_solve_aux(vec![], HashSet::new(), r, &mut b, self.k, 0, &self.weights);
-    // }
+    // This is not the best way to implement this but it was really straightforward
+    // you could use the enumeration type approach with a max depth and cull paths
+    // that can't receive better than the current max reward.
+    pub fn k_greedy_solution(&mut self, k: usize) -> Result<Vec<usize>, &str> {
+        if k <= 0 {
+            return Err("k must be greater than zero");
+        }
+
+        let mut selected_indices = vec![];
+
+        // step by k
+        while selected_indices.len() + k <= self.k {
+            let mut best_score = f64::NEG_INFINITY;
+            let mut best_indices = vec![]; // Initialize with the first index
+
+            // combination: Vec<usize, &Vec<uize>>
+            for combination in self.sets.iter().enumerate().combinations(k) {
+                let indices_to_test: Vec<usize> =
+                    combination.iter().map(|(index, _)| *index).collect();
+                let score_sum = rewards(&indices_to_test, &self.sets, &self.weights);
+
+                if score_sum > best_score {
+                    best_score = score_sum;
+                    best_indices = indices_to_test;
+                }
+            }
+
+            selected_indices.extend(&best_indices);
+            let mut attesters_to_cull: HashSet<usize> = HashSet::new();
+            for index in best_indices {
+                attesters_to_cull.extend(&self.sets[index]);
+            }
+            self.sets.iter_mut().for_each(|attester_set| {
+                let mut indices_to_remove = vec![];
+                for (index, attester) in attester_set.iter().enumerate() {
+                    if attesters_to_cull.contains(attester) {
+                        indices_to_remove.push(index);
+                    }
+                }
+                for index in indices_to_remove.iter().rev() {
+                    attester_set.remove(*index);
+                }
+            });
+        }
+
+        // if capacity is not full step by 1
+        if selected_indices.len() < self.k {
+            let mut res = vec![];
+
+            for num in 0..(self.k - selected_indices.len()) {
+                let score_vec: Vec<f64> = self
+                    .sets
+                    .iter()
+                    .map(|attesters| {
+                        attesters
+                            .iter()
+                            .map(|attester| self.weights[*attester])
+                            .sum()
+                    })
+                    .collect();
+
+                let max_index = score_vec
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &value)| value.is_finite()) // filter out NaN values
+                    .max_by(|&(_, a), &(_, b)| {
+                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .map(|(index, _)| index)
+                    .unwrap();
+
+                res.push(max_index);
+                let attesters_to_cull: HashSet<usize> =
+                    self.sets[max_index].clone().into_iter().collect();
+                self.sets.iter_mut().for_each(|attester_set| {
+                    let mut indices_to_remove = vec![];
+                    for (index, attester) in attester_set.iter().enumerate() {
+                        if attesters_to_cull.contains(attester) {
+                            indices_to_remove.push(index);
+                        }
+                    }
+                    for index in indices_to_remove.iter().rev() {
+                        attester_set.remove(*index);
+                    }
+                });
+            }
+            selected_indices.extend(res);
+        }
+
+        assert!(selected_indices.len() <= self.k);
+        Ok(selected_indices)
+    }
+
+    pub fn enum_solve2(&self) -> Vec<usize> {
+        let mut b: Vec<usize> = vec![];
+        let r = (0..self.sets.len()).collect::<Vec<usize>>();
+        let mut w: Vec<usize> = vec![];
+        enum_solve_aux3(&mut w, &r, &mut b, self.k, 0, &self.weights, &self.sets);
+        b
+    }
 }
 
-// // w: The current working solution to the WeightedMaximumCoverage problem
-// // r: The remaining attestations to be considered for the solution
-// // b: The best solution seen so far
-// // k: the maximum number of attestations that can be used
-// // i: the current index to consider as the beginning of the remaining attestations set
-// pub fn enum_solve_aux(
-//     w: Vec<Vec<usize>>,
-//     w_set: HashSet<usize>,
-//     r: &Vec<Vec<usize>>,
-//     b: &mut Vec<Vec<usize>>,
-//     k: usize,
-//     i: usize,
-//     weights: &Vec<f64>,
-// ) {
-//     if i < r.len() && w.len() < k {
-//         for attestation in r {
-//             let mut c = w.clone();
-//             c.push(attestation.clone());
-//             let mut c_set = w_set.clone();
-//             c_set.extend(attestation);
-//             if rewards(&mut c, weights) > rewards(b, weights) {
-//                 *b = c.clone();
-//             }
-//             let r_prime: Vec<Vec<usize>> = r.clone().into_iter().filter(|r_att| {
-//                 r_att.iter()
-//                     .cloned()
-//                     .collect::<HashSet<usize>>()
-//                     .intersection(&c_set)
-//                     .next()
-//                     .is_some()
-//             }).collect();
-//             let mut p: Vec<f64> = r_prime.iter().map(|r| rewards(&vec![r.clone()], weights)).collect();
-//             p.sort_by(|a, b| b.partial_cmp(a).unwrap());
-//             let p_val: f64 = p.iter().take(k - c.len()).sum();
-//             if rewards(&c, weights) + p_val > rewards(b, weights) {
-//                 enum_solve_aux(c, c_set, &r_prime, b, k, i, weights)
-//             }
-//         }
-//     }
-// }
-
-// // w: The current working solution to the WeightedMaximumCoverage problem (indices of sets)
-// // r: The remaining attestations to be considered for the solution
-// // b: The best solution seen so far
-// // k: the maximum number of attestations that can be used
-// // i: the current index to consider as the beginning of the remaining attestations set
-// pub fn enum_solve_aux2(
-//     w: Vec<usize>,
-//     w_set: HashSet<usize>,
-//     r: Vec<usize>,
-//     b: &mut Vec<Vec<usize>>,
-//     k: usize,
-//     i: usize,
-//     weights: &Vec<f64>,
-//     sets: &Vec<Vec<usize>>,
-// ) {
-//     if r.len() > 0 && w.len() < k {
-//         for attestation in r {
-//             let mut c = w.clone();
-//             c.push(attestation.clone());
-//             let mut c_set = w_set.clone();
-//             c_set.extend(attestation);
-//             if rewards(&mut c, weights) > rewards(b, weights) {
-//                 *b = c.clone();
-//             }
-//             let r_prime: Vec<Vec<usize>> = r.clone().into_iter().filter(|r_att| {
-//                 r_att.iter()
-//                     .cloned()
-//                     .collect::<HashSet<usize>>()
-//                     .intersection(&c_set)
-//                     .next()
-//                     .is_some()
-//             }).collect();
-//             let mut p: Vec<f64> = r_prime.iter().map(|r| rewards(&vec![r.clone()], weights)).collect();
-//             p.sort_by(|a, b| b.partial_cmp(a).unwrap());
-//             let p_val: f64 = p.iter().take(k - c.len()).sum();
-//             if rewards(&c, weights) + p_val > rewards(b, weights) {
-//                 enum_solve_aux(c, c_set, &r_prime, b, k, i, weights)
-//             }
-//         }
-//     }
-// }
-
-pub fn rewards(included_attestations: &Vec<Vec<usize>>, weights: &Vec<f64>) -> f64 {
-    let mut unique_attesters: HashSet<usize> = HashSet::new();
-    for attestation in included_attestations {
-        for attester in attestation {
-            unique_attesters.insert(*attester);
+pub fn enum_solve_aux2(
+    w: Vec<usize>,
+    w_set: HashSet<usize>,
+    r: Vec<usize>,
+    b: &mut Vec<usize>,
+    k: usize,
+    i: usize,
+    weights: &Vec<f64>,
+    sets: &Vec<Vec<usize>>,
+) {
+    if r.len() > 0 && w.len() < k {
+        for attestation_index in r.iter() {
+            let mut c = w.clone();
+            c.push(attestation_index.clone());
+            let mut c_set = w_set.clone();
+            c_set.extend(sets[*attestation_index].clone());
+            if rewards(&c, sets, weights) > rewards(b, sets, weights) {
+                *b = c.clone();
+            }
+            let r_prime: Vec<usize> = r.clone();
+            let mut p: Vec<f64> = r_prime
+                .iter()
+                .map(|r| rewards(&vec![r.clone()], sets, weights))
+                .collect();
+            p.sort_by(|a, b| b.partial_cmp(a).unwrap());
+            let p_val: f64 = p.iter().take(k - c.len()).sum();
+            if rewards(&c, sets, weights) + p_val > rewards(b, sets, weights) {
+                enum_solve_aux2(c, c_set, r_prime, b, k, i, weights, sets)
+            }
         }
+    }
+}
+
+pub fn enum_solve_aux3(
+    w: &mut Vec<usize>,
+    r: &Vec<usize>,
+    b: &mut Vec<usize>,
+    k: usize,
+    i: usize,
+    weights: &Vec<f64>,
+    sets: &Vec<Vec<usize>>,
+) {
+    if r.len() > 0 && w.len() < k {
+        for &attestation_index in r.iter() {
+            w.push(attestation_index);
+
+            let rewards_c = rewards(w, sets, weights);
+            let rewards_b = rewards(b, sets, weights);
+
+            if rewards_c > rewards_b {
+                b.clone_from(&w);
+            }
+
+            let mut r_prime = r.clone();
+            r_prime.retain(|&r| w.contains(&r) == false);
+
+            let mut p: Vec<f64> = r_prime
+                .iter()
+                .map(|&r| rewards(&vec![r], sets, weights))
+                .collect();
+            p.sort_by(|a, b| b.partial_cmp(a).unwrap());
+
+            let p_val: f64 = p.iter().take(k - w.len()).sum();
+
+            if rewards_c + p_val > rewards_b {
+                enum_solve_aux3(w, &r_prime, b, k, i, weights, sets);
+            }
+
+            w.pop();
+        }
+    }
+}
+
+pub fn rewards(included_attestations: &[usize], sets: &[Vec<usize>], weights: &[f64]) -> f64 {
+    let mut unique_attesters: HashSet<usize> = HashSet::new();
+
+    for &attestation_index in included_attestations {
+        unique_attesters.extend(&sets[attestation_index]);
     }
 
     unique_attesters
         .iter()
-        .map(|attester| weights[*attester])
+        .map(|&attester| weights[attester])
         .sum()
 }
 

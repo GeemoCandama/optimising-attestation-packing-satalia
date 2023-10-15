@@ -1,5 +1,6 @@
 use crate::aapp::instance::{Attestation, AttestationData, EpochAttesterID, Instance};
 use crate::algorithms::{bron_kerbosh, WeightedMaximumCoverage};
+use crate::approaches::mip_approach::{calculate_reward, is_compatible};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
@@ -15,10 +16,13 @@ pub fn decomposition_approach(instance: &Instance) {
 
     let mut data_vec: Vec<&AttestationData> = vec![];
     let mut cliqued_atts: Vec<Vec<Vec<EpochAttesterID>>> = vec![];
+    let mut total_bron_kerbosch_time = Duration::ZERO;
 
     for (data, attestations) in &aggregated_atts {
         // derive cliques for current attestation data
+        let bron_start = Instant::now();
         let cliques = bron_kerbosh(attestations, is_compatible);
+        total_bron_kerbosch_time += Instant::now().duration_since(bron_start);
         let mut cliques: Vec<Vec<EpochAttesterID>> = cliques
             .iter()
             .map(|clique| {
@@ -83,7 +87,6 @@ pub fn decomposition_approach(instance: &Instance) {
 
     let mut num_available_atts = 0;
     let m = 128;
-    let num_data = cliqued_atts.len();
     let mut mip_time = Duration::new(0, 0);
     for (index, clique_set) in cliqued_atts.iter().enumerate() {
         let index = index + 1;
@@ -129,19 +132,10 @@ pub fn decomposition_approach(instance: &Instance) {
     }
 
     let optimal_reward = f_map.last().unwrap().last().unwrap();
-    println!("optimal_reward: {}", optimal_reward);
 
     print!("{}", instance.slot.0);
 
-    // print!(
-    //     ",{},{}",
-    //     &final_attesters
-    //         .iter()
-    //         .flatten()
-    //         .collect::<HashSet<_>>()
-    //         .len(),
-    //     optimal_reward
-    // );
+    print!(",0,{}", optimal_reward);
     let greedy_reward = calculate_reward(&instance.greedy_solution, &instance.reward_function);
     print!(
         ",{},{},{:.5}",
@@ -158,13 +152,13 @@ pub fn decomposition_approach(instance: &Instance) {
     let end = Instant::now();
 
     print!(
-        ",total mip time: {:?}, total time: {}",
-        mip_time,
+        ",{},{}",
+        mip_time.as_millis(),
         end.duration_since(start).as_millis() // all duration
     );
 
     print!(
-        ", min cliques {}, max cliques {}, average cliques {:.5}",
+        ",{},{},{:.5}",
         num_cliques.iter().min().unwrap(),
         num_cliques.iter().max().unwrap(),
         num_cliques.iter().map(|&x| x as f64).sum::<f64>() / (num_cliques.len() as f64),
@@ -200,25 +194,6 @@ fn group_by_att_data(
     ret
 }
 
-fn is_compatible(x: &Attestation, y: &Attestation) -> bool {
-    let x_attester_set: HashSet<_> = x.attesting_indices.iter().collect();
-    let y_attester_set: HashSet<_> = y.attesting_indices.iter().collect();
-    x_attester_set.is_disjoint(&y_attester_set)
-}
-
-fn calculate_reward(
-    attesters: &[Vec<EpochAttesterID>],
-    weights: &HashMap<EpochAttesterID, u64>,
-) -> f64 {
-    let unique_attesters = attesters.iter().flatten().collect::<HashSet<_>>();
-
-    unique_attesters
-        .iter()
-        .map(|attester| weights.get(attester).unwrap_or(&0))
-        .map(|weight| *weight as f64)
-        .sum()
-}
-
 fn calculate_f_from_map(
     instance: &Instance,
     f_map: &Vec<Vec<f64>>,
@@ -251,14 +226,14 @@ fn calculate_f_from_map(
                 let res = if reindexed_atts.len() == 1 {
                     vec![0]
                 } else {
-                    let wmcp = WeightedMaximumCoverage {
+                    let mut wmcp = WeightedMaximumCoverage {
                         sets: reindexed_atts.clone(),
                         weights: reindexed_weights.clone(),
                         k: q,
                     };
                     let mip_start = Instant::now();
 
-                    let res = wmcp.solve().unwrap();
+                    let res = wmcp.greedy_solution().unwrap();
                     let mip_end = Instant::now();
                     *mip_time += mip_end - mip_start;
                     res

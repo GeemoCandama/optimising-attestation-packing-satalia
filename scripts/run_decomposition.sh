@@ -10,5 +10,5 @@ printf "running %s instances\n" "$#"
 
 echo 'slot,optimal attesters,optimal score,greedy attesters,greedy score,gap,MIP time (ms),total time (ms),min cliques by AD,max cliques by AD,avg. cliques by AD,attesters,unique data_roots' >> report.csv;
 for instance in "$@"; do
-  ./target/release/sigmaprime --approach mip_approach --input $instance >> report_mip.csv; 
+  ./target/release/sigmaprime --approach decomposition --input $instance >> report_decomp.csv; 
 done

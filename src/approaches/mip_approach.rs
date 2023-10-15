@@ -71,7 +71,6 @@ pub fn mip_approach(instance: &Instance) {
     let mut new_to_old: Vec<EpochAttesterID> = cliqued_atts.iter().flatten().cloned().collect();
     new_to_old.sort_unstable();
     new_to_old.dedup();
-    println!("num cliques: {}", num_cliques.iter().sum::<usize>());
 
     let old_to_new: HashMap<EpochAttesterID, usize> = new_to_old
         .iter()
@@ -90,7 +89,7 @@ pub fn mip_approach(instance: &Instance) {
         .map(|weight| weight.copied().unwrap_or(0) as f64)
         .collect();
 
-    let mut wmcp = WeightedMaximumCoverage {
+    let wmcp = WeightedMaximumCoverage {
         sets: reindexed_atts,
         weights: reindexed_weights,
         k: 128,
@@ -98,7 +97,7 @@ pub fn mip_approach(instance: &Instance) {
 
     let mip_start = Instant::now();
 
-    let res = wmcp.greedy_solution().unwrap();
+    let res = wmcp.solve().unwrap();
 
     let final_attesters: Vec<Vec<EpochAttesterID>> =
         res.iter().map(|idx| cliqued_atts[*idx].clone()).collect();
@@ -163,7 +162,7 @@ pub fn mip_approach(instance: &Instance) {
     println!(",{}", n_unique) // number of unique attestation data
 }
 
-fn group_by_att_data(
+pub fn group_by_att_data(
     attestations: &Vec<Attestation>,
 ) -> HashMap<AttestationData, Vec<Attestation>> {
     let mut ret: HashMap<AttestationData, Vec<Attestation>> = HashMap::new();
@@ -175,13 +174,13 @@ fn group_by_att_data(
     ret
 }
 
-fn is_compatible(x: &Attestation, y: &Attestation) -> bool {
+pub fn is_compatible(x: &Attestation, y: &Attestation) -> bool {
     let x_attester_set: HashSet<_> = x.attesting_indices.iter().collect();
     let y_attester_set: HashSet<_> = y.attesting_indices.iter().collect();
     x_attester_set.is_disjoint(&y_attester_set)
 }
 
-fn calculate_reward(
+pub fn calculate_reward(
     attesters: &[Vec<EpochAttesterID>],
     weights: &HashMap<EpochAttesterID, u64>,
 ) -> f64 {

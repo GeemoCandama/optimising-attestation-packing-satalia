@@ -1,10 +1,7 @@
 /// Entry point for the Bron-Kerbosh algorithm. Takes a vector of `vertices` of type
 /// `T : Compatible<T>`. Returns all the maximal cliques (as a matrix of indices) for the graph
 /// `G = (V,E)` where `V` is `vertices` and `E` encodes the `is_compatible` relationship.
-pub fn bron_kerbosh<T, F: Fn(&T, &T) -> bool>(
-    vertices: &Vec<T>,
-    is_compatible: F,
-) -> Vec<Vec<usize>> {
+pub fn bron_kerbosh<T, F: Fn(&T, &T) -> bool>(vertices: &[T], is_compatible: F) -> Vec<Vec<usize>> {
     // create empty vector to store cliques
     let mut cliques: Vec<Vec<usize>> = vec![];
 
@@ -39,15 +36,15 @@ pub fn bron_kerbosh<T, F: Fn(&T, &T) -> bool>(
 /// and returns a symmetric matrix (`Vec<Vec<usize>>`) of indices, where each index corresponds
 /// to the relative vertex in `vertices`.
 fn compute_neigbourhoods<T, F: Fn(&T, &T) -> bool>(
-    vertices: &Vec<T>,
+    vertices: &[T],
     is_compatible: F,
 ) -> Vec<Vec<usize>> {
     let mut neighbourhoods = vec![];
     neighbourhoods.resize_with(vertices.len(), Vec::new);
-    for (i, vertex)  in vertices.iter().enumerate() {
-        for (j, vertex_2) in vertices.iter().enumerate().skip(i) {
-            if is_compatible(vertex, vertex_2) {
-                neighbourhoods[i].push(j + i);
+    for i in 0..vertices.len() {
+        for j in 0..i {
+            if is_compatible(&vertices[i], &vertices[j]) {
+                neighbourhoods[i].push(j);
                 neighbourhoods[j].push(i);
             }
         }
